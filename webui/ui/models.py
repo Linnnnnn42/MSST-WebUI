@@ -52,16 +52,16 @@ def models(webui_config):
 		with gr.TabItem(label=i18n("安装非官方MSST模型")):
 			gr.Markdown(
 				value=i18n(
-					"你可以从其他途径获取非官方MSST模型, 在此页面完成配置文件设置后, 即可正常使用。<br>注意: 仅支持'.ckpt', '.th', '.chpt'格式的模型。模型显示名字为模型文件名。<br>选择模型类型: 共有三个可选项。依次代表人声相关模型, 多音轨分离模型, 单音轨分离模型。仅用于区分模型大致类型, 可任意选择。<br>选择模型类别: 此选项关系到模型是否能正常推理使用, 必须准确选择!"
+					"你可以从其他途径获取非官方MSST模型, 在此页面完成配置文件设置后, 即可正常使用。<br>注意: 仅支持'.ckpt', '.th', '.chpt', '.safetensors'格式的模型。模型显示名字为模型文件名。<br>选择模型类型: 共有三个可选项。依次代表人声相关模型, 多音轨分离模型, 单音轨分离模型。仅用于区分模型大致类型, 可任意选择。<br>选择模型类别: 此选项关系到模型是否能正常推理使用, 必须准确选择!<br><b>支持两种方式安装模型: 1. 上传本地模型文件；2. 提供模型下载链接自动下载（二选一即可）</b>"
 				)
 			)
 			with gr.Row():
-				unmsst_model = gr.File(label=i18n("上传非官方MSST模型"), type="filepath")
-				unmsst_config = gr.File(label=i18n("上传非官方MSST模型配置文件"), type="filepath")
+				unmsst_model = gr.File(label=i18n("上传非官方MSST模型 (与下载链接二选一)"), type="filepath")
+				unmsst_config = gr.File(label=i18n("上传非官方MSST模型配置文件 (必须)"), type="filepath")
 			with gr.Row():
 				unmodel_class = gr.Dropdown(label=i18n("选择模型类型"), choices=["vocal_models", "multi_stem_models", "single_stem_models"], interactive=True)
 				unmodel_type = gr.Dropdown(label=i18n("选择模型类别"), choices=MODEL_TYPE, interactive=True)
-				unmsst_model_link = gr.Textbox(label=i18n("模型下载链接 (非必须，若无，可跳过)"), value="", interactive=True, scale=2)
+				unmsst_model_link = gr.Textbox(label=i18n("模型下载链接 (与上传文件二选一，必须以.ckpt/.th/.chpt/.safetensors结尾)"), value="", interactive=True, scale=2)
 			unmsst_model_install = gr.Button(i18n("安装非官方MSST模型"), variant="primary")
 			output_message_unmsst = gr.Textbox(label="Output Message")
 		with gr.TabItem(label=i18n("安装非官方VR模型")):

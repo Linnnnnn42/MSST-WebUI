@@ -106,7 +106,7 @@ def download_model(model_type, model_name):
 			return i18n("模型") + model_name + i18n("已安装")
 		_, _, model_url, model_path = get_vr_model(model_name)
 		os.makedirs(model_path, exist_ok=True)
-		return download_file(model_url, os.path.join(model_path, model_name), model_name)
+		return download_file(model_url, os.path.join(model_path, model_name), model_name, verify_sha256=True)
 	else:
 		model_mapping = load_msst_model()
 		if model_name in model_mapping:
@@ -114,10 +114,10 @@ def download_model(model_type, model_name):
 		_, _, _, model_url = get_msst_model(model_name)
 		model_path = os.path.join(MODEL_FOLDER, model_type, model_name)
 		os.makedirs(os.path.join(MODEL_FOLDER, model_type), exist_ok=True)
-		return download_file(model_url, model_path, model_name)
+		return download_file(model_url, model_path, model_name, verify_sha256=True)
 
 
-def download_file(url, path, model_name):
+def download_file(url, path, model_name, verify_sha256=True):
 	try:
 		logger.info(f"Downloading model {model_name} from {url}")
 
@@ -138,22 +138,30 @@ def download_file(url, path, model_name):
 						last_update_time = current_time
 				progress_bar.update(bytes_written)
 
-		current_sha256 = calculate_sha256(path)
-		_, target_sha256 = load_model_info(model_name)
-		logger.debug(f"Model {model_name} sha256: {current_sha256}, target sha256: {target_sha256}")
-		if target_sha256 != "Unknown":
-			if target_sha256 != current_sha256:
-				logger.warning(f"Model {model_name} sha256 check failed")
-				return i18n("模型") + model_name + i18n("sha256校验失败") + ", " + i18n("请手动删除后重新下载")
+		logger.info(f"Model {model_name} downloaded successfully")
+
+		# Optional SHA256 verification
+		if verify_sha256:
+			current_sha256 = calculate_sha256(path)
+			_, target_sha256 = load_model_info(model_name)
+			logger.debug(f"Model {model_name} sha256: {current_sha256}, target sha256: {target_sha256}")
+			if target_sha256 != "Unknown":
+				if target_sha256 != current_sha256:
+					logger.warning(f"Model {model_name} sha256 check failed")
+					os.remove(path)
+					return i18n("模型") + model_name + i18n("sha256校验失败") + ", " + i18n("请手动删除后重新下载")
+				else:
+					logger.info(f"Model {model_name} sha256 check passed")
+					return i18n("模型") + model_name + i18n("下载成功") + ", " + i18n("sha256校验成功")
 			else:
-				logger.info(f"Model {model_name} downloaded successfully, sha256 check passed")
-				return i18n("模型") + model_name + i18n("下载成功") + ", " + i18n("sha256校验成功")
+				return i18n("模型") + model_name + i18n("下载成功") + ", " + i18n("无法校验sha256")
 		else:
-			logger.info(f"Model {model_name} downloaded successfully")
-			logger.warning(f"Model {model_name} sha256 is unknown, cannot verify")
-			return i18n("模型") + model_name + i18n("下载成功") + ", " + i18n("无法校验sha256")
+			return i18n("模型") + model_name + i18n("下载成功")
+
 	except Exception as e:
 		logger.error(f"Failed to download model: {str(e)}\n{traceback.format_exc()}")
+		if os.path.exists(path):
+			os.remove(path)
 		return i18n("模型") + model_name + i18n("下载失败") + str(e)
 
 
@@ -186,61 +194,72 @@ def update_vr_param(is_BV_model, is_VR51_model, model_param):
 
 
 def install_unmsst_model(unmsst_model, unmsst_config, unmodel_class, unmodel_type, unmsst_model_link):
-	# os.makedirs(os.path.join(UNOFFICIAL_MODEL, "msst_config"), exist_ok=True)
-
-	# try:
-	#     model_map = load_configs(os.path.join(UNOFFICIAL_MODEL, "unofficial_msst_model.json"))
-	# except FileNotFoundError:
-	#     model_map = {"multi_stem_models": [], "single_stem_models": [], "vocal_models": []}
-
-	# try:
-	#     model_name = os.path.basename(unmsst_model)
-
-	#     if not unmsst_config.endswith(".yaml"):
-	#         return i18n("请上传'.yaml'格式的配置文件")
-	#     if not unmsst_model.endswith((".ckpt", ".chpt", ".th")):
-	#         return i18n("请上传'ckpt', 'chpt', 'th'格式的模型文件")
-	#     if unmodel_class == "" or unmodel_type == "":
-	#         return i18n("请输入正确的模型类别和模型类型")
-
-	#     if model_name in load_msst_model():
-	#         os.remove(os.path.join(MODEL_FOLDER, unmodel_class, model_name))
-	#         logger.warning(f"Find existing model with the same name: {model_name}, overwriting.")
-
-	#     shutil.copy(unmsst_model, os.path.join(MODEL_FOLDER, unmodel_class))
-	#     shutil.copy(unmsst_config, os.path.join(UNOFFICIAL_MODEL, "msst_config"))
-
-	#     config = {
-	#         "name": model_name,
-	#         "config_path": os.path.join(UNOFFICIAL_MODEL, "msst_config", os.path.basename(unmsst_config)),
-	#         "model_type": unmodel_type,
-	#         "link": unmsst_model_link
-	#     }
-
-	#     model_map[unmodel_class].append(config)
-	#     save_configs(model_map, os.path.join(UNOFFICIAL_MODEL, "unofficial_msst_model.json"))
-	#     logger.info(f"Unofficial MSST model {model_name} installed successfully. Model config: {config}")
-	#     return i18n("模型") + os.path.basename(unmsst_model) + i18n("安装成功。重启WebUI以刷新模型列表")
-	# except Exception as e:
-	#     logger.error(f"Failed to install unofficial MSST model: {str(e)}\n{traceback.format_exc()}")
-	#     return i18n("模型") + os.path.basename(unmsst_model) + i18n("安装失败") + str(e)
 	models_info = load_configs(MODELS_INFO)
 	try:
-		model_name = os.path.basename(unmsst_model)
+		# Check if we need to download model from link
+		if unmsst_model is None and unmsst_model_link:
+			# Download model from link
+			if not unmsst_model_link.startswith(("http://", "https://")):
+				return i18n("模型下载链接格式不正确，请以http://或https://开头")
+
+			# Extract model name from URL
+			model_name = os.path.basename(unmsst_model_link.split("?")[0])
+			if not model_name.endswith((".ckpt", ".chpt", ".th", ".safetensors")):
+				return i18n("无法从下载链接中识别模型文件名，请确保链接以.ckpt, .chpt, .th或.safetensors结尾")
+
+			logger.info(f"Downloading unofficial MSST model from link: {unmsst_model_link}")
+
+			# Create target directory
+			target_position = os.path.join(MODEL_FOLDER, unmodel_class, model_name)
+			os.makedirs(os.path.join(MODEL_FOLDER, unmodel_class), exist_ok=True)
+
+			# Download model (without SHA256 verification for unofficial models)
+			download_result = download_file(unmsst_model_link, target_position, model_name, verify_sha256=False)
+			if i18n("下载失败") in download_result:
+				return download_result
+
+			unmsst_model = target_position
+
+		elif unmsst_model is not None:
+			# Use uploaded model file
+			model_name = os.path.basename(unmsst_model)
+		else:
+			return i18n("请上传模型文件或提供模型下载链接")
+
+		# Validate config file
+		if unmsst_config is None:
+			# Clean up downloaded file if config is missing
+			if os.path.exists(os.path.join(MODEL_FOLDER, unmodel_class, model_name)):
+				os.remove(os.path.join(MODEL_FOLDER, unmodel_class, model_name))
+			return i18n("请上传模型配置文件(.yaml)")
+
 		if not unmsst_config.endswith(".yaml"):
+			# Clean up downloaded file if config is invalid
+			if os.path.exists(os.path.join(MODEL_FOLDER, unmodel_class, model_name)):
+				os.remove(os.path.join(MODEL_FOLDER, unmodel_class, model_name))
 			return i18n("请上传'.yaml'格式的配置文件")
-		if not unmsst_model.endswith((".ckpt", ".chpt", ".th", ".safetensors")):
+
+		if not model_name.endswith((".ckpt", ".chpt", ".th", ".safetensors")):
 			return i18n("请上传'ckpt', 'chpt', 'th', 'safetensors'格式的模型文件")
 		if unmodel_class == "" or unmodel_type == "":
 			return i18n("请输入正确的模型类别和模型类型")
 
-		if model_name in load_msst_model():
-			os.remove(os.path.join(MODEL_FOLDER, unmodel_class, model_name))
-			logger.warning(f"Find existing model with the same name: {model_name}, overwriting.")
-
 		target_position = os.path.join(MODEL_FOLDER, unmodel_class, model_name)
 		config_path = target_position.replace("pretrain", "configs") + ".yaml"
-		shutil.copy(unmsst_model, target_position)
+
+		# Check for existing model and remove if necessary (only if not downloaded)
+		if model_name in load_msst_model():
+			existing_path = os.path.join(MODEL_FOLDER, unmodel_class, model_name)
+			# Only remove if it's a different path (uploaded model case)
+			if os.path.exists(existing_path) and unmsst_model != target_position:
+				os.remove(existing_path)
+				logger.warning(f"Find existing model with the same name: {model_name}, overwriting.")
+
+		# Copy uploaded model if needed (if not downloaded)
+		if unmsst_model != target_position:
+			shutil.copy(unmsst_model, target_position)
+
+		# Copy config file
 		shutil.copy(unmsst_config, config_path)
 
 		config = {
@@ -257,10 +276,10 @@ def install_unmsst_model(unmsst_model, unmsst_config, unmodel_class, unmodel_typ
 		models_info[model_name] = config
 		save_configs(models_info, MODELS_INFO)
 		logger.info(f"Unofficial MSST model {model_name} installed successfully. Model config: {config}")
-		return i18n("模型") + os.path.basename(unmsst_model) + i18n("安装成功。重启WebUI以刷新模型列表")
+		return i18n("模型") + model_name + i18n("安装成功。重启WebUI以刷新模型列表")
 	except Exception as e:
 		logger.error(f"Failed to install unofficial MSST model: {str(e)}\n{traceback.format_exc()}")
-		return i18n("模型") + os.path.basename(unmsst_model) + i18n("安装失败") + str(e)
+		return i18n("模型安装失败: ") + str(e)
 
 
 def install_unvr_model(
